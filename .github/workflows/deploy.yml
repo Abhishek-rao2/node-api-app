@@ -13,15 +13,18 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
-    - name: SSH & Deploy to EC2
-      uses: appleboy/ssh-action@v0.1.6
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ${{ secrets.EC2_USER }}
-        key: ${{ secrets.EC2_KEY }}
-        script: |
-          docker stop node-api-app || true
-          docker rm node-api-app || true
-          docker pull abhidochub123/node-api-app:latest
-          docker run -d -p 80:3000 --name node-api-app abhidochub123/node-api-app
+    - name: Set up SSH
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.EC2_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
+    - name: Deploy to EC2
+      run: |
+        ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          docker pull abhidochub123/node-api-app:latest
+          docker stop node-api || true
+          docker rm node-api || true
+          docker run -d --name node-api -p 80:3000 abhidochub123/node-api-app:latest
+        EOF
